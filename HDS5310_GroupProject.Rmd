@@ -1,0 +1,39 @@
+```{r}
+require(SASxport)
+```
+
+```{r}
+library(foreign)
+```
+```{r}
+install.packages('dplyr')
+library('tidyverse)
+```
+
+```{r}
+DEMO_I <- read.xport ("DEMO_I.xpt")
+HIQ_I <- read.xport ("HIQ_I.xpt")
+HOQ_I <- read.xport ("HOQ_I.xpt")
+INQ_I <- read.xport ("INQ_I.xpt")
+PAQ_I <- read.xport ("PAQ_I.xpt")
+
+```
+
+
+```{r}
+#merge datasets together
+nhanes_1 <- full_join (DEMO_I, HIQ_I, by = "SEQN")
+```
+
+```{r}
+nhanes_2 <-full_join(nhanes_1, HOQ_I, by = "SEQN")
+```
+
+```{r}
+nhanes_3 <- full_join (nhanes_2, INQ_I, by = "SEQN")
+```
+
+```{r}
+nhanes_final <- full_join(nhanes_3, PAQ_I, by = "SEQN")
+```
+
