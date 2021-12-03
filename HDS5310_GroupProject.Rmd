@@ -37,3 +37,60 @@ nhanes_3 <- full_join (nhanes_2, INQ_I, by = "SEQN")
 nhanes_final <- full_join(nhanes_3, PAQ_I, by = "SEQN")
 ```
 
+```{r}
+nhanes_small<-nhanes_final%>%
+  select(RIAGENDR, RIDAGEYR,RIDRETH3, DMDEDUC2,INDFMIN2, HOQ065,HIQ011, PAQ670, PAD675)
+
+```
+
+```{r}
+#view data
+summary(nhanes_small)
+
+
+```
+
+```{r}
+nhanes_recoded<-nhanes_small%>%
+  mutate(RIAGENDR = recode_factor(.x=RIAGENDR,
+                                    `1`='Male',
+                                    `2` = 'Female'))%>%
+mutate(RIDRETH3 = recode_factor(.x=RIDRETH3,
+                                `1`= 'Mexican American',
+                                `2`= 'Other Hispanice',
+                                `3` = 'None-Hispanic White',
+                                `4` = 'None-Hispanice Black',
+                                `6` = 'Non-Hispanic Asian',
+                                `7` = 'Other Race-Including Multi-racial'))%>%
+mutate(DMDEDUC2 = recode_factor(.x=DMDEDUC2,
+                                `1` = 'Less than 9th grade',
+                                `2`='9-11th grade (Includes 12th grade with no diploma)', 
+                                `3`='High school graduate/GED or equivalent', 
+                                `4`= 'Some college or AA degree',
+                                `5`= 'College graduate or above',
+                                `7`= NA_character_,  
+                                `9`= NA_character_))%>%
+mutate(HOQ065 = recode_factor(.x=HOQ065,
+                              `1` = 'Owned or bought',
+                              `2` = 'Rented',
+                              `3` = 'Other arrangement',
+                              `7`= NA_character_,  
+                              `9`= NA_character_))%>%
+mutate(HIQ011 = recode_factor(.x =HIQ011,
+                              `1` = 'Yes',
+                              `2` = 'No',
+                              `7`= NA_character_,  
+                              `9`= NA_character_))%>%
+rename(sex = RIAGENDR) %>%
+rename(race.eth = RIDRETH3) %>%
+rename(adult.ed = DMDEDUC2) %>%
+rename(home.owned = HOQ065)%>%
+rename(health.ins = HIQ011)%>%
+rename(fam.annual.income = INDFMIN2)%>%
+rename(age =RIDAGEYR)
+```
+
+```{r}
+summary(nhanes_recoded)
+```
+
