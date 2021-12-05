@@ -88,6 +88,12 @@ mutate(DMDEDUC3 = recode_factor(.x=DMDEDUC3,
                                 `66`= 'Less than 9th grade',
                                 `77`= NA_character_, 
                                 `99`= NA_character_))%>%
+  mutate(age_group = case_when(RIDAGEYR <6 ~ NA_character_,
+   RIDAGEYR >=6 & RIDAGEYR <18 ~ '6-17',
+  RIDAGEYR >=18 & RIDAGEYR <=59 ~ '18-59',
+   RIDAGEYR >=60 & RIDAGEYR <=74 ~ '60-74',
+  RIDAGEYR >=75 ~ '75+'
+                                ))%>%
 mutate(INDFMIN2=recode_factor(.x=INDFMIN2,
                                 `1` = '<$20,000',
                                 `2` = '<$20,000',
