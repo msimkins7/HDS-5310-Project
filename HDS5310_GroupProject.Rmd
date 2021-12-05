@@ -7,7 +7,7 @@ library(foreign)
 ```
 ```{r}
 install.packages('dplyr')
-library('tidyverse)
+library('tidyverse')
 ```
 
 ```{r}
