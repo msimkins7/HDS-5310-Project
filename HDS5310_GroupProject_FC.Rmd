@@ -1,3 +1,6 @@
+
+############################DATA MANAGEMENT####################################
+
 ```{r}
 require(SASxport)
 ```
@@ -11,6 +14,7 @@ library('tidyverse')
 ```
 
 ```{r}
+#Read SAS files
 DEMO_I <- read.xport ("DEMO_I.xpt")
 HIQ_I <- read.xport ("HIQ_I.xpt")
 HOQ_I <- read.xport ("HOQ_I.xpt")
@@ -55,9 +59,9 @@ nhanes_recoded<-nhanes_small%>%
 mutate(RIDRETH3 = recode_factor(.x=RIDRETH3,
                                 `1`= 'Hispanic',
                                 `2`= 'Hispanic',
-                                `3` = 'None-Hispanic White',
-                                `4` = 'None-Hispanice Black',
-                                `6` = 'Non-Hispanic Asian',
+                                `3` = 'White non-Hispanic',
+                                `4` = 'Black non-Hispanice',
+                                `6` = 'Asian non-Hispanic',
                                 `7` = 'Other Race-Including Multi-racial'))%>%
 mutate(DMDEDUC2 = recode_factor(.x=DMDEDUC2,
                                 `1` = 'Less than 9th grade',
@@ -116,6 +120,11 @@ mutate(HIQ011 = recode_factor(.x =HIQ011,
                               `2` = 'No',
                               `7`= NA_character_,  
                               `9`= NA_character_))%>%
+mutate(age_group = case_when(RIDAGEYR <12 ~ NA_character_,
+                             RIDAGEYR >=12 & RIDAGEYR <18 ~ '12-17',
+                             RIDAGEYR >=18 & RIDAGEYR <=59 ~ '18-59',
+                             RIDAGEYR >=60 & RIDAGEYR <=74 ~ '60-74',
+                             RIDAGEYR >=75 ~ '75+'))%>%
 mutate(PAD675= na_if(x=PAD675, y=9999))%>%
 mutate(PAD675= na_if(x=PAD675, y=7777))%>% 
 rename(sex = RIAGENDR) %>%
@@ -129,7 +138,200 @@ rename(age = RIDAGEYR)%>%
 rename(mPA = PAD675)
 ```
 
+
 ```{r}
-summary(nhanes_recoded)
+nhanes_recoded_final <- nhanes_recoded 
+  nhanes_recoded_final$adult.ed[is.na(nhanes_recoded_final$adult.ed)] <- nhanes_recoded_final$child.ed[is.na(nhanes_recoded_final$adult.ed)]
 ```
 
+```{r}
+summary(nhanes_recoded)
+summary(nhanes_recoded_final)
+```
+
+########################DESCRIPTIVE STATISTICS #####################
+
+```{r}
+#summary of mins of moderate physical activity (mPA)
+summary(object=nhanes_recoded_final$mPA)
+```
+
+
+```{r}
+#Descriptive statistics with tableone
+mPA.table<-CreateTableOne(data=nhanes_recoded_final)
+```
+
+```{r}
+#Print table 
+print(x=mPA.table,
+      varLabels = TRUE,
+      nonnormal = 'mPA')
+```
+#######################DATA VISUALIZATIONS##########################
+
+
+```{r}
+#histogram of mPA to determine distribution
+mPA.histo<-nhanes_recoded_final %>%
+  ggplot(aes(x=mPA))+
+  geom_histogram(fill="darkolivegreen", color="white") +
+  theme_minimal()+
+  labs (x="Minutes of moderate physical activity per day", 
+        y="NHANES participants")
+mPA.histo
+```
+
+
+############ EXPLORATORY DATA ANALISIS##############################
+```{r}
+#descriptive stats by race.eth
+mpa.by.race<-nhanes_recoded_final %>%
+  drop_na(mPA)%>%
+  group_by(race.eth)%>%
+  summarise (m.mpa=mean(mPA),
+             sd.mpa=sd(mPA),
+             md.mpa=median(mPA),
+             iqr.mpa=IQR(mPA))
+mpa.by.race
+```
+
+```{r}
+#box plot mPA and race.eth
+race.boxplot<-nhanes_recoded_final %>%
+  drop_na (mPA) %>%
+  ggplot(aes(y=mPA, x=race.eth)) +
+  geom_boxplot(aes(fill=race.eth), alpha=.4) +
+  scale_fill_brewer(palette = "Spectral", guide=FALSE) +
+  theme_minimal() +
+  labs (x= "Race and Ethnicity of NHANES participants",
+        y= "Minutes of physical activity per day")
+race.boxplot
+```
+
+########################STATISTICAL ANALYSIS########################
+
+ANOVA: 
+
+```{r}
+#ANOVA mPA by race.eth
+mpa.anova<-oneway.test(formula=mPA ~ race.eth, 
+                       data=nhanes_recoded_final, 
+                       var.equal = TRUE)
+mpa.anova
+```
+
+#Interpretation: The mean time spent doing physical activity was significantly different across racial and ethnic groups [F(4,2935)=5.5, p<.05]. Respondents from other race including multiracial presented the highest minutes of physical activity and the lowest Asian not Hispanic.  
+
+Bonferroni Post-hoc test
+
+```{r}
+#find the differences in mean mPA by race and ethnic group 
+bonf.mpa.race<-pairwise.t.test(x=nhanes_recoded_final$mPA, 
+                               g=nhanes_recoded_final$race.eth, 
+                               p.adj ="bonf")
+bonf.mpa.race
+```
+#Interpretion: Mean time spend doing moderate physical activity was statistically significantly lower in Asian Non-hispanic respondents compared with all other racial groups (p<.05). 
+
+1. CHECK ASSUMPTIONS FROM ANOVA 
+
+1) variable is continuous: Our dependent variable is minutes of physical activity per day and this is a continuous variable, so this assumption is met. 
+
+2) independent observations: NHANES participants 
+NHANES will contact the selected household and ask a short set of questions about everyone in the household. A computer process randomly selects some, all, or none of the household members, so potentially we could have siblings in the data set. 
+
+3) if mPA is normally distributed with a histogram and Shapiro test.
+
+```{r}
+#Graph of mPA by race.eth 
+
+density.mPA.race<-nhanes_recoded_final %>%
+  drop_na(mPA)%>%
+  ggplot(aes(x=mPA))+
+  geom_density(aes(fill=race.eth)) + 
+  facet_wrap(facets = vars(race.eth),nrow=2)+
+  scale_fill_brewer(palette = "Spectral", guide=FALSE) +
+  theme_minimal()+
+  labs (x="Minutes of moderate physical activity per day", 
+        y="Probability density")
+density.mPA.race
+```
+#Interpretation: These density plots do not show data normally distributed in any of the race.ethnicity categories. 
+
+```{r}
+#statistical test of normality by race.eth with null hypothesis that data is normally distributed.
+nhanes_recoded_final%>%
+  drop_na(mPA)%>%
+  group_by(race.eth) %>%
+  summarise (shapiro.pval=shapiro.test(x=mPA)$p.value)
+```
+#Interpretation: The null hypothesis that this data is normally distributed is rejected in each group, therefore we conclude that data is not normally distributed in any of the race.ethnicity categories.  This assumption is not met. 
+
+4) equal variances in each group with leveneTest
+```{r}
+#statistical Levenetest  for equal variances for mPQ by race.eth with null hypothesis that variances are equal
+car::leveneTest(y=mPA ~ race.eth, data=nhanes_recoded_final, center=mean)
+```
+
+#Interpretation: The p-value of the test is statistically significant, therefore we must reject the null hypothesis that the variances are equal across race groups. This assumption is not met. 
+
+2. WELCH F-STATISTIC DUE TO NOT EQUAL VARIANCES
+
+NHST 1: Write  null and alternative hypothesis
+H0: Time spend doing moderate physical activity per day is the same in race and ethnic categories
+H1: Time spend doing moderate physical activity per day is NOT the same in race and ethnic categories
+
+NHST 2: Welch test
+```{r}
+#welch test for unequal variances
+welch.mpa.by.race<-oneway.test(formula=mPA ~ race.eth, 
+                               data=nhanes_recoded_final,
+                               var.equal = FALSE)
+welch.mpa.by.race
+```
+
+NHST 3: The p-value is 1.66 -05 which is a small probability that the null hypothesis is true. 
+
+NHST 4: Interpretation: There is a statistically significant difference in the mean of time spent doing moderate physical activity per day across racial and ethnic groups [Fw(4,695.01)=6.9; p<.05]. 
+
+3. KRUSKAL WALLIS FOR FAILING THE NORMALITY ASSUMPTION
+
+NHST 1: 
+N0:The mean rank of time spent doing moderate physical activity per day is the same in race and ethnic categories
+N1:The mean rank of time spent doing moderate physical activity per day is NOT the same in race and ethnic categories
+
+NHST 2: 
+```{r}
+#compare mPA by race.eth with K-W test
+kw.mpa.by.race<-kruskal.test(formula= mPA ~ race.eth, 
+                             data=nhanes_recoded_final)
+kw.mpa.by.race
+```
+
+NHST 3: The probability that the null hypothesis is true is very small. 
+
+NHST 4: Interpretation: There is a difference in the mean rank of time spent doing moderate physical activity per day by race and ethnic categories [H(4)=23.25; p<.05]. 
+
+3.1 DUNN'S POST-HOC TEST FOR KRUSKAL WALLIS
+
+```{r}
+#post-hoc Dunn test for mPA by race.eth
+
+dunn.mpa.by.race<- dunn.test::dunn.test(x=nhanes_recoded_final$mPA,
+                                        g=nhanes_recoded_final$race.eth, 
+                                        method = "bonferroni")
+```
+
+Interpretation: The Dunn test shows that there is a statistically significant difference between Asians vs Black; Asian vs Hispanic; Asian vs Other race; Asian vs White, all with p-values <.05. 
+
+3.2 EFFECT SIZE FOR KRUSKAL WALLIS USING ETA SQUARED FOR H 
+
+```{r}
+#Eta squared for K-W
+  (23.253-5+1)/(2940-5)
+```
+
+Interpretation: There is a small-strength relationship between race.ethnicity groups and the minutes spent doing moderate to physical activity per day. 
+
+ A Kruskal-Wallis test found a statistically significant difference in time spent doing moderate physical activity across race and ethnicity groups [H(4)=23.25; p<.05]. Based on a Dunn’s post hoc test, Asian non Hispanic respondents had statistically significantly lower mean ranked minutes of moderate physical activity time than all of the other racial groups (p <.05). There was a small effect   size for the relationship between racial groups and ranked values of minutes of moderate physical activity time (η2 = .006).
