@@ -1,0 +1,540 @@
+###########################PROLOG########################################
+#Project Name: Influence of demographic, socioeconomic, and environmental factors on physical activity levels: an analysis of the National Health and Nutrition Examination Survey (NHANES)
+
+#Project Purpose: Determine associations between relevant survey respondent characteristics (age, sex, race/ethinicity, income, education, health insurance) with minutes of physicial activity and determine which variables are significant predictors
+
+#Code authors: Maria Ferdnanda Canizare Mora, Megan Price, Michelle 
+
+#Date last edited: December 7, 2021
+
+#Location of data used: Data downloaded from 2015-2016 NHANES survey: https://wwwn.cdc.gov/nchs/nhanes/search/datapage.aspx?Component=Questionnaire&CycleBeginYear=2015
+
+
+   
+```{r}
+require(SASxport)
+```
+
+```{r}
+library(foreign)
+```
+
+```{r}
+install.packages('dplyr')
+library('tidyverse')
+install.packages('descr')
+install.packages('tableone')
+```
+
+```{r}
+DEMO_I <- read.xport ("DEMO_I.xpt")
+HIQ_I <- read.xport ("HIQ_I.xpt")
+HOQ_I <- read.xport ("HOQ_I.xpt")
+INQ_I <- read.xport ("INQ_I.xpt")
+PAQ_I <- read.xport ("PAQ_I.xpt")
+```
+
+
+```{r}
+#merge datasets together
+nhanes_1 <- full_join (DEMO_I, HIQ_I, by = "SEQN")
+```
+
+```{r}
+nhanes_2 <-full_join(nhanes_1, HOQ_I, by = "SEQN")
+```
+
+```{r}
+nhanes_3 <- full_join (nhanes_2, INQ_I, by = "SEQN")
+```
+
+```{r}
+nhanes_final <- full_join(nhanes_3, PAQ_I, by = "SEQN")
+```
+
+```{r}
+#create a small data set with selected variables: sex, age, education, income, housing, insurance, mins of mPA
+nhanes_small<-nhanes_final%>%
+  select(RIAGENDR, RIDAGEYR,RIDRETH3, DMDEDUC2,DMDEDUC3,INDFMIN2, HOQ065,HIQ011, PAD675)
+```
+
+```{r}
+#view data
+summary(nhanes_small)
+```
+
+```{r}
+nhanes_recoded<-nhanes_small%>%
+  mutate(RIAGENDR = recode_factor(.x=RIAGENDR,
+                                    `1`='Male',
+                                    `2` = 'Female'))%>%
+mutate(RIDRETH3 = recode_factor(.x=RIDRETH3,
+                                `1`= 'Hispanic',
+                                `2`= 'Hispanic',
+                                `3` = 'None-Hispanic White',
+                                `4` = 'None-Hispanice Black',
+                                `6` = 'Non-Hispanic Asian',
+                                `7` = 'Other Race-Including Multi-racial'))%>%
+mutate(DMDEDUC2 = recode_factor(.x=DMDEDUC2,
+                                `1` = 'Less than 9th grade',
+                                `2`='9-11th grade (Includes 12th grade with no diploma)', 
+                                `3`='High school graduate/GED or equivalent', 
+                                `4`= 'Some college or AA degree',
+                                `5`= 'College graduate or above',
+                                `7`= NA_character_,  
+                                `9`= NA_character_))%>%
+mutate(DMDEDUC3 = recode_factor(.x=DMDEDUC3,
+                                `0`= 'Never attended school', 
+                                `1`= 'Less than 9th grade',
+                                `2`= 'Less than 9th grade',
+                                `3`= 'Less than 9th grade',
+                                `4`= 'Less than 9th grade',
+                                `5`= 'Less than 9th grade',
+                                `6`= 'Less than 9th grade',
+                                `7`= 'Less than 9th grade',
+                                `8`= 'Less than 9th grade',
+                                `9`= '9-11th grade (Includes 12th grade with no diploma)',
+                                `10`= '9-11th grade (Includes 12th grade with no diploma)',
+                                `11`= '9-11th grade (Includes 12th grade with no diploma)',
+                                `12`= '9-11th grade (Includes 12th grade with no diploma)',
+                                `13`= 'High school graduate/GED or equivalent',
+                                `14`= 'High school graduate/GED or equivalent',
+                                `15`= 'High school graduate/GED or equivalent',
+                                `55`= 'Less than 9th grade',
+                                `66`= 'Less than 9th grade',
+                                `77`= NA_character_, 
+                                `99`= NA_character_))%>%
+  mutate(age_group = case_when(RIDAGEYR <6 ~ NA_character_,
+   RIDAGEYR >=6 & RIDAGEYR <18 ~ '6-17',
+  RIDAGEYR >=18 & RIDAGEYR <=59 ~ '18-59',
+   RIDAGEYR >=60 & RIDAGEYR <=74 ~ '60-74',
+  RIDAGEYR >=75 ~ '75+'
+                                ))%>%
+mutate(INDFMIN2=recode_factor(.x=INDFMIN2,
+                                `1` = '<$20,000',
+                                `2` = '<$20,000',
+                                `3` = '<$20,000',
+                                `4` = '<$20,000',
+                                `5`= '$20,000-$99,999',
+                                `6` = '$20,000-$99,999',
+                                `7` ='$20,000-$99,999',
+                                `8` ='$20,000-$99,999',
+                                `9` ='$20,000-$99,999',
+                                `10` = '$20,000-$99,999',
+                                `12` = '$20,000-$99,999',
+                                `13` = '<$20,000',
+                                `14` = '$20,000-$99,999',
+                                `15` = '$100,000 +',
+                                `77` = NA_character_,
+                                `99` =NA_character_ ))%>%
+mutate(HOQ065 = recode_factor(.x=HOQ065,
+                              `1` = 'Owned or bought',
+                              `2` = 'Rented',
+                              `3` = 'Other arrangement',
+                              `7`= NA_character_,  
+                              `9`= NA_character_))%>%
+mutate(HIQ011 = recode_factor(.x =HIQ011,
+                              `1` = 'Yes',
+                              `2` = 'No',
+                              `7`= NA_character_,  
+                              `9`= NA_character_))%>%
+mutate(PAD675= na_if(x=PAD675, y=9999))%>%
+mutate(PAD675= na_if(x=PAD675, y=7777))%>% 
+rename(sex = RIAGENDR) %>%
+rename(race.eth = RIDRETH3) %>%
+rename(adult.ed = DMDEDUC2) %>%
+rename(child.ed = DMDEDUC3) %>%
+rename(home.owned = HOQ065) %>%
+rename(health.ins = HIQ011) %>%
+rename(fam.annual.income = INDFMIN2)%>%
+rename(age = RIDAGEYR)%>%
+rename(mPA = PAD675)
+```
+
+```{r}
+nhanes_recoded_final <- nhanes_recoded 
+  nhanes_recoded_final$adult.ed[is.na(nhanes_recoded_final$adult.ed)] <- nhanes_recoded_final$child.ed[is.na(nhanes_recoded_final$adult.ed)]
+```
+
+```{r}
+summary(nhanes_recoded_final)
+```
+
+#transformation of mPA
+
+```{r}
+mpa.data<-nhanes_recoded_final%>%
+  ggplot(aes(x=mPA))+
+  geom_histogram(fill= "#7463AC", col = "white")+
+                   labs (x = "mPA", y = "# survey respondants")+
+                   theme_minimal()
+cube.root.mpa.data<-nhanes_recoded_final%>%
+  ggplot(aes(x=(mPA)^(1/3)))+
+  geom_histogram(fill= "#7463AC", col = "white")+
+                   labs (x = "cube root of mPA", y = "# survey respondants")+
+                   theme_minimal()
+sqrt.root.mpa.data<-nhanes_recoded_final%>%
+  ggplot(aes(x=sqrt(x=mPA)))+
+  geom_histogram(fill= "#7463AC", col = "white")+
+                   labs (x = "sqr root of mPA", y = "# survey respondants")+
+                   theme_minimal()
+log.mpa.data <- nhanes_recoded_final%>%
+  ggplot(aes(x=log(x=mPA)))+
+  geom_histogram(fill= "#7463AC", col = "white")+
+                   labs (x = "log of mPA", y = "")+
+                   theme_minimal()
+#view options for mPA transformation to determine which is the most normally distributed
+gridExtra::grid.arrange(mpa.data, cube.root.mpa.data, sqrt.root.mpa.data, log.mpa.data)
+```
+
+
+########################DESCRIPTIVE STATISTICS #####################
+
+```{r}
+#summary of mins of moderate physical activity (mPA)
+summary(object=nhanes_recoded_final$mPA)
+```
+
+
+```{r}
+#Descriptive statistics with tableone
+mPA.table<-CreateTableOne(data=nhanes_recoded_final)
+```
+
+```{r}
+#Print table 
+print(x=mPA.table,
+      varLabels = TRUE,
+      nonnormal = 'mPA')
+```
+#######################DATA VISUALIZATIONS##########################
+
+
+```{r}
+#histogram of mPA to determine distribution
+mPA.histo<-nhanes_recoded_final %>%
+  ggplot(aes(x=mPA))+
+  geom_histogram(fill="darkolivegreen", color="white") +
+  theme_minimal()+
+  labs (x="Minutes of moderate physical activity per day", 
+        y="NHANES participants")
+mPA.histo
+```
+```{r}
+#mPA by Health Insurance Status
+  #Data Visualization:
+  boxplot.health.ins <- nhanes_recoded %>%
+    drop_na (health.ins) %>%
+    ggplot (aes(y = mPA)) +
+    geom_boxplot()+
+    facet_grid(cols = vars(health.ins)) +
+    theme_minimal () +
+    labs (y = "Minutes of Physcial Activity Daily") +
+    coord_flip()
+  boxplot.health.ins
+  
+```
+
+
+
+############ EXPLORATORY DATA ANALISIS##############################
+```{r}
+#descriptive stats by race.eth
+mpa.by.race<-nhanes_recoded_final %>%
+  drop_na(mPA)%>%
+  group_by(race.eth)%>%
+  summarise (m.mpa=mean(mPA),
+             sd.mpa=sd(mPA),
+             md.mpa=median(mPA),
+             iqr.mpa=IQR(mPA))
+mpa.by.race
+```
+
+```{r}
+#box plot mPA and race.eth
+race.boxplot<-nhanes_recoded_final %>%
+  drop_na (mPA) %>%
+  ggplot(aes(y=mPA, x=race.eth)) +
+  geom_boxplot(aes(fill=race.eth), alpha=.4) +
+  scale_fill_brewer(palette = "Spectral", guide=FALSE) +
+  theme_minimal() +
+  labs (x= "Race and Ethnicity of NHANES participants",
+        y= "Minutes of physical activity per day")
+race.boxplot
+```
+
+########################STATISTICAL ANALYSIS########################
+
+```{r}
+  #Independent Samples T-test NHST:
+    #NHST Step 1: Writing the null and alternative hypotheses 
+      #H0: There is no difference in the mean minutes of physical activity between health insurance status groups.
+      #HA: There is a difference in the mean minutes of physical activity between health insurance status groups.
+    #NHST Step 2 and 3: Determining the test statistic and calculating the probability that the test statistic is at least as big as it is if there is no relationship
+twosampt <- t.test(formula = nhanes_recoded$mPA ~
+               nhanes_recoded$health.ins)
+twosampt
+  
+    #NHST Step 4 and 5: Interpret the probability and write a conclusion.
+      #The Independent Samples T-test produced a statistically significant result (t(502.36) = -4.9336; p-value < .05). Therefore, there is a statistically                             significant difference in the mean minutes of daily physical activity between those with health insurance, or those that answered "yes," (m = 60.77) and those without           health insurance, or those that answered "no" (m = 77.20) in the sample. Given the sample used to create the NHANES 2015-2016 data set  was composed of members of the U.S       Population, it can be concluded that those with health insurance in the U.S likely have a different mean number of minutes of daily physical activity than those without         health insurance in the U.S. The difference between mean number of minutes of daily physical activity in those with health insurance and those without health insurance           was -16.43 minutes. In the U.S population this sample came from, the difference was likely between -22.97 and -9.88 minutes (95% CI: -22.97 - -9.88). 
+```
+
+```{r}
+#Checking Independent Samples T-test Assumptions:
+#1.) Independent Observations -- met. We feel this assumption is met for NHANES 2015-2016 Participants are from separate households, and therefore, likely independent of one    another.
+ #2.) Normality -- not met. When looking at the histograms for both distributions ("yes" health insurance status and mPA and "no" health insurance status and mPA), neither appears normally distributed.
+# Creating Histogram of mPA by Health Insurance Status 
+nhanes_recoded %>%
+      drop_na (health.ins) %>%
+      ggplot(aes(x = mPA)) +
+      geom_histogram(fill = "black", col = "white") +
+      facet_grid(cols = vars(health.ins)) +
+      theme_minimal() +
+      labs(x="Minutes of Physical Activity Daily",
+      y ="NHANES Participants")
+#3.) Equal Variances/Homoscedasity -- not determined. Given that a Welch's Independent Samples T-test was run, it is not necessary to determine if the equal variances/homoscedasity assumption is met as would be necessary for a Student's Independent Samples T-test.
+#The normality assumption is not met for the Independent Samples T-test, therefore, a Mann-Whitney U Test must be performed.
+```
+
+```{r}
+#Mann-Whitney U Test NHST
+    #NHST Step 1: Writing the null and alternative hypotheses 
+      #H0: There is no difference in the mean minutes of physical activity between health insurance       status groups.
+      #HA: There is a difference in the mean minutes of physical activity between health insurance        status groups.
+    #NHST Step 2 and 3: Determining the test statistic and calculating the probability that the         test statistic is at least as big as it is if there is no relationship
+    mann.whitney <- wilcox.test (formula = nhanes_recoded$mPA ~ 
+                                   nhanes_recoded$health.ins,
+                                   paired = FALSE)
+    mann.whitney
+    
+   #[Determining r for Mann-Whitney U Test]
+    
+  
+nhanes_recoded.noNA <- nhanes_recoded %>%
+    drop_na(mPA)
+rcompanion::wilcoxonR(x = nhanes_recoded.noNA$mPA,
+          g = nhanes_recoded.noNA$health.ins)
+    #NHST Step 4 and 5: Interpret the probability and write a conclusion.
+      #The Mann-Whitney U Test produced a statistically significant result (W = 431651, p-value < .05). Therefore, it can be concluded that there is a statistically significant       difference in mean number of minutes of physical activity daily between those with health insurance, or  those that answered "yes", and those without health insurance, or       those that answered "no". The effect size .0983 (rounded to .1) was small indicating a weak but statistically significant relationship between health insurance status and       number of minutes of daily physical activity.
+    
+    
+```
+
+#ANOVA
+```{r}
+#ANOVA mPA by race.eth
+mpa.anova<-oneway.test(formula=mPA ~ race.eth, 
+                       data=nhanes_recoded_final, 
+                       var.equal = TRUE)
+mpa.anova
+```
+
+#Interpretation: The mean time spent doing physical activity was significantly different across racial and ethnic groups [F(4,2935)=5.5, p<.05]. Respondents from other race including multiracial presented the highest minutes of physical activity and the lowest Asian not Hispanic.  
+
+Bonferroni Post-hoc test
+
+```{r}
+#find the differences in mean mPA by race and ethnic group 
+bonf.mpa.race<-pairwise.t.test(x=nhanes_recoded_final$mPA, 
+                               g=nhanes_recoded_final$race.eth, 
+                               p.adj ="bonf")
+bonf.mpa.race
+```
+#Interpretion: Mean time spend doing moderate physical activity was statistically significantly lower in Asian Non-hispanic respondents compared with all other racial groups (p<.05). 
+
+1. CHECK ASSUMPTIONS FROM ANOVA 
+
+1) variable is continuous: Our dependent variable is minutes of physical activity per day and this is a continuous variable, so this assumption is met. 
+
+2) independent observations: NHANES participants 
+NHANES will contact the selected household and ask a short set of questions about everyone in the household. A computer process randomly selects some, all, or none of the household members, so potentially we could have siblings in the data set. 
+
+3) if mPA is normally distributed with a histogram and Shapiro test.
+
+```{r}
+#Graph of mPA by race.eth 
+density.mPA.race<-nhanes_recoded_final %>%
+  drop_na(mPA)%>%
+  ggplot(aes(x=mPA))+
+  geom_density(aes(fill=race.eth)) + 
+  facet_wrap(facets = vars(race.eth),nrow=2)+
+  scale_fill_brewer(palette = "Spectral", guide=FALSE) +
+  theme_minimal()+
+  labs (x="Minutes of moderate physical activity per day", 
+        y="Probability density")
+density.mPA.race
+```
+#Interpretation: These density plots do not show data normally distributed in any of the race.ethnicity categories. 
+
+```{r}
+#statistical test of normality by race.eth with null hypothesis that data is normally distributed.
+nhanes_recoded_final%>%
+  drop_na(mPA)%>%
+  group_by(race.eth) %>%
+  summarise (shapiro.pval=shapiro.test(x=mPA)$p.value)
+```
+#Interpretation: The null hypothesis that this data is normally distributed is rejected in each group, therefore we conclude that data is not normally distributed in any of the race.ethnicity categories.  This assumption is not met. 
+
+4) equal variances in each group with leveneTest
+```{r}
+#statistical Levenetest  for equal variances for mPQ by race.eth with null hypothesis that variances are equal
+car::leveneTest(y=mPA ~ race.eth, data=nhanes_recoded_final, center=mean)
+```
+
+#Interpretation: The p-value of the test is statistically significant, therefore we must reject the null hypothesis that the variances are equal across race groups. This assumption is not met. 
+
+2. WELCH F-STATISTIC DUE TO NOT EQUAL VARIANCES
+
+NHST 1: Write  null and alternative hypothesis
+H0: Time spend doing moderate physical activity per day is the same in race and ethnic categories
+H1: Time spend doing moderate physical activity per day is NOT the same in race and ethnic categories
+
+NHST 2: Welch test
+```{r}
+#welch test for unequal variances
+welch.mpa.by.race<-oneway.test(formula=mPA ~ race.eth, 
+                               data=nhanes_recoded_final,
+                               var.equal = FALSE)
+welch.mpa.by.race
+```
+
+NHST 3: The p-value is 1.66 -05 which is a small probability that the null hypothesis is true. 
+
+NHST 4: Interpretation: There is a statistically significant difference in the mean of time spent doing moderate physical activity per day across racial and ethnic groups [Fw(4,695.01)=6.9; p<.05]. 
+
+3. KRUSKAL WALLIS FOR FAILING THE NORMALITY ASSUMPTION
+
+NHST 1: 
+N0:The mean rank of time spent doing moderate physical activity per day is the same in race and ethnic categories
+N1:The mean rank of time spent doing moderate physical activity per day is NOT the same in race and ethnic categories
+
+NHST 2: 
+```{r}
+#compare mPA by race.eth with K-W test
+kw.mpa.by.race<-kruskal.test(formula= mPA ~ race.eth, 
+                             data=nhanes_recoded_final)
+kw.mpa.by.race
+```
+
+NHST 3: The probability that the null hypothesis is true is very small. 
+
+NHST 4: Interpretation: There is a difference in the mean rank of time spent doing moderate physical activity per day by race and ethnic categories [H(4)=23.25; p<.05]. 
+
+3.1 DUNN'S POST-HOC TEST FOR KRUSKAL WALLIS
+
+```{r}
+#post-hoc Dunn test for mPA by race.eth
+dunn.mpa.by.race<- dunn.test::dunn.test(x=nhanes_recoded_final$mPA,
+                                        g=nhanes_recoded_final$race.eth, 
+                                        method = "bonferroni")
+```
+
+Interpretation: The Dunn test shows that there is a statistically significant difference between Asians vs Black; Asian vs Hispanic; Asian vs Other race; Asian vs White, all with p-values <.05. 
+
+3.2 EFFECT SIZE FOR KRUSKAL WALLIS USING ETA SQUARED FOR H 
+
+```{r}
+#Eta squared for K-W
+  (23.253-5+1)/(2940-5)
+```
+
+Interpretation: There is a small-strength relationship between race.ethnicity groups and the minutes spent doing moderate to physical activity per day. 
+
+ A Kruskal-Wallis test found a statistically significant difference in time spent doing moderate physical activity across race and ethnicity groups [H(4)=23.25; p<.05]. Based on a Dunn’s post hoc test, Asian non Hispanic respondents had statistically significantly lower mean ranked minutes of moderate physical activity time than all of the other racial groups (p <.05). There was a small effect   size for the relationship between racial groups and ranked values of minutes of moderate physical activity time (η2 = .006).
+ 
+ 
+
+#final model
+
+```{r}
+ mPA_model <-lm(formula = (log(x=mPA)) ~ sex +race.eth + adult.ed + home.owned +health.ins +fam.annual.income +age,                data = nhanes_recoded_final)
+summary(object=mPA_model)
+```
+
+```{r}
+ci.mpa.model<-confint(object=mPA_model)
+ci.mpa.model
+```
+
+
+#Interpretation of slope
+The slope is -0.179 for sex of female, so being female means having .179 minutes less of physical activity. The slopes for Non-Hispanic Whites and Non-Hispanic Asians are -.03 and -.177, respectively, meaning being a Non-Hispanic White has .03 minutes less and being a Non-Hispanic Asian has .177 minutes less of physical activity. The slope for non-Hispanic black is .02 and for other race is .088, respectively, meaning they have .02 more minutes and .088 minutes more, respectively, of physical activity. Education level of high school grad/GED or equivalent had the largest slope out of all education levels of .266, meaning they had .266 more minutes of physical activity. Having another arrangement for home ownership had the largest slope of all home ownership levels of .282, meaning they had .282 more minutes of physical activity. Having health insurance meant having .102 more minutes of physical activity.  Finally, with age for every year there was -0.0012 less minutes of physical activity.
+
+It is important to note that only female sex (b=-0.179, p<.001), non-Hispanic Asian (b=-.177, p <.001)) education of 9-11th grade (b= 0.18, p<.001), high school/GED equivalent(b=.266, p<.01), some college or AA degree(b=.184,p<.01), college graduate or above (b=.137, p<.01), other home ownership arrangement (b=.282, p=.01), and no health insurance (b=.18, p<.01) were significant predictors of minutes of physical activity. Based on the 95% CI, females likely have -.232 to -.123 less minutes of physical activity, non-Hispanic Asian race/ethnicity likely have .273 to .074 less,college grade and above likely have .011 to 0.25 more, some college or AA degree likely have .06 to .3 more, other home ownership likely have .068  to .5 more, and no health insurance likely have .1 to .27 more.
+
+#Model fit and significant
+
+NHST Step 1:
+H0: A model including age, sex, education, home ownership, health insurance status, race/ethnicity, and income is no better at explaining minutes of physical activity then a baseline model of mean minutes of physical activity
+H1: A model including age, sex, education, home ownership, health insurance status, race/ethnicity, and income is  better at explaining minutes of physical activity than a baseline model of mean minutes of physical activity
+
+NHST STEP 2: Compute test statistic 
+
+The test statistic for this model is F and its value is F(15,2724 )= 8.726
+
+NHST STEP 3: Calculate the probability that your test statistic is at least as big as it is if there is no relationship
+
+There is a tiny probability ( p<.001) of an F as big as 8.726 if H0 is true
+
+NHST STEP 4 and 5: Interpret probability and write conclusion
+  Given the tiny p-value, we rejected the null hypothesis in favor of the alternative hypothesis that a model including age, sex, education, home ownership, health insurance status, race/ethnicity, and income is helpful in explaining  minutes of physical activity 
+  
+#Final interpretation:
+The model was statistically significantly better than the baseline model at explaining minutes of physical activity [F(15,2724) =8.726,p<.001] and explained 34.1% of he variance in the outcome (Radj2=0.04059)
+
+#checking assumptions
+
+1) Independent observations:
+We feel this assumption is met as NHANES survey responses are conducted in separate households
+
+2)Continuous variables
+The outcome of mPA is minutes of physical activity, which is continuous and this assumption is met
+
+3) Normality with histogram
+As shown earlier, mPA is not normally distributed and we convered the mPA with log to get the closest to a normally distributed variable
+
+4) Linearity
+```{r}
+#log of mPA and age
+nhanes_recoded_final %>%
+ggplot(aes(x = age, y = log(x=mPA))) +
+geom_point(aes(size = "SEQN"), color = "#7463AC", alpha = .6) +
+geom_smooth(aes(color = "Linear fit line"), method = "lm", se = FALSE) +
+geom_smooth(aes(color = "Loess curve"), se = FALSE) +
+theme_minimal() +
+labs(y = "Log of mins physical activity", x = "Age") +
+scale_color_manual(values = c("gray60", "deeppink"), name = "") +
+scale_size_manual(values = 2, name = "")
+```
+#Interpretation:#
+There is clearly not a linear relationship between age and mPA based on the Loess surve
+
+5) Homoscedasticty
+```{r}
+#Bruesch-Pagan test for constant variance
+const.var.test <- lmtest::bptest(formula = mPA_model)
+const.var.test
+```
+#Interpretation:
+The Breusch-Pagan test has a tinu p-value (BP = 66.65; p<.001), indicating that the null hypothesis of constant variance would be reject, which is consistant with the scatter plot
+
+6) Independence of residuals
+```{r}
+#Durbin-Watson test
+lmtest::dwtest(formula = mPA_model)
+```
+#Interpretation:
+The DW statistic is near 2 with a high p-value, so the null hypothesis is retained and the assumption of independent residuals is met
+
+7) Normality of residuals
+```{r}
+data.frame(mPA_model$residuals) %>%
+  ggplot(aes(x = mPA_model.residuals)) +
+    geom_histogram(fill = "#7463AC", col = "white") +
+  theme_minimal() +
+labs(x = "Residual (distance between obs and exp mPA",
+y = "Number of respondants")
+```
+
+#Interpretation
+The residuals are not normally distributed and are somewhat bi-modal
