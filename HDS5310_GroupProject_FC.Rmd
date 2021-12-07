@@ -138,4 +138,97 @@ rename(mPA = PAD675)
 ```{r}
 summary(nhanes_recoded)
 ```
+#mPA by Health Insurance Status
+
+  #Data Visualization:
+
+  boxplot.health.ins <- nhanes_recoded %>%
+    drop_na (health.ins) %>%
+    ggplot (aes(y = mPA)) +
+    geom_boxplot()+
+    facet_grid(cols = vars(health.ins)) +
+    theme_minimal () +
+    labs (y = "Minutes of Physcial Activity Daily") +
+    coord_flip()
+
+  boxplot.health.ins
+  
+```
+  
+
+```{r}
+  #Independent Samples T-test NHST:
+
+    #NHST Step 1: Writing the null and alternative hypotheses 
+      #H0: There is no difference in the mean minutes of physical activity between health insurance status groups.
+      #HA: There is a difference in the mean minutes of physical activity between health insurance status groups.
+
+    #NHST Step 2 and 3: Determining the test statistic and calculating the probability that the test statistic is at least as big as it is if there is no relationship
+
+twosampt <- t.test(formula = nhanes_recoded$mPA ~
+               nhanes_recoded$health.ins)
+
+twosampt
+  
+    #NHST Step 4 and 5: Interpret the probability and write a conclusion.
+
+      #The Independent Samples T-test produced a statistically significant result (t(502.36) = -4.9336; p-value < .05). Therefore, there is a statistically                             significant difference in the mean minutes of daily physical activity between those with health insurance, or those that answered "yes," (m = 60.77) and those without           health insurance, or those that answered "no" (m = 77.20) in the sample. Given the sample used to create the NHANES 2015-2016 data set  was composed of members of the U.S       Population, it can be concluded that those with health insurance in the U.S likely have a different mean number of minutes of daily physical activity than those without         health insurance in the U.S. The difference between mean number of minutes of daily physical activity in those with health insurance and those without health insurance           was -16.43 minutes. In the U.S population this sample came from, the difference was likely between -22.97 and -9.88 minutes (95% CI: -22.97 - -9.88). 
+
+```
+
+```{r}
+
+#Checking Independent Samples T-test Assumptions:
+
+#1.) Independent Observations -- met. We feel this assumption is met for NHANES 2015-2016 Participants are from separate households, and therefore, likely independent of one    another.
+
+ #2.) Normality -- not met. When looking at the histograms for both distributions ("yes" health insurance status and mPA and "no" health insurance status and mPA), neither appears normally distributed.
+
+# Creating Histogram of mPA by Health Insurance Status 
+nhanes_recoded %>%
+      drop_na (health.ins) %>%
+      ggplot(aes(x = mPA)) +
+      geom_histogram(fill = "black", col = "white") +
+      facet_grid(cols = vars(health.ins)) +
+      theme_minimal() +
+      labs(x="Minutes of Physical Activity Daily",
+      y ="NHANES Participants")
+
+
+#3.) Equal Variances/Homoscedasity -- not determined. Given that a Welch's Independent Samples T-test was run, it is not necessary to determine if the equal variances/homoscedasity assumption is met as would be necessary for a Student's Independent Samples T-test.
+
+#The normality assumption is not met for the Independent Samples T-test, therefore, a Mann-Whitney U Test must be performed.
+
+```
+
+```{r}
+
+#Mann-Whitney U Test NHST
+
+    #NHST Step 1: Writing the null and alternative hypotheses 
+      #H0: There is no difference in the mean minutes of physical activity between health insurance       status groups.
+      #HA: There is a difference in the mean minutes of physical activity between health insurance        status groups.
+
+    #NHST Step 2 and 3: Determining the test statistic and calculating the probability that the         test statistic is at least as big as it is if there is no relationship
+
+    mann.whitney <- wilcox.test (formula = nhanes_recoded$mPA ~ 
+                                   nhanes_recoded$health.ins,
+                                   paired = FALSE)
+    mann.whitney
+    
+   #[Determining r for Mann-Whitney U Test]
+    
+  
+nhanes_recoded.noNA <- nhanes_recoded %>%
+    drop_na(mPA)
+
+rcompanion::wilcoxonR(x = nhanes_recoded.noNA$mPA,
+          g = nhanes_recoded.noNA$health.ins)
+
+    #NHST Step 4 and 5: Interpret the probability and write a conclusion.
+
+      #The Mann-Whitney U Test produced a statistically significant result (W = 431651, p-value < .05). Therefore, it can be concluded that there is a statistically significant       difference in mean number of minutes of physical activity daily between those with health insurance, or  those that answered "yes", and those without health insurance, or       those that answered "no". The effect size .0983 (rounded to .1) was small indicating a weak but statistically significant relationship between health insurance status and       number of minutes of daily physical activity.
+    
+    
+```
 
